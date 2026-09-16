@@ -303,6 +303,22 @@ export const RECONCILIATIONS: {
   },
 ];
 
+/**
+ * Structural gaps in the §3.2 notation, as opposed to individual wrong cells.
+ * Surfaced to the §12.18 Role & Access screen alongside `RECONCILIATIONS`.
+ */
+export const STRUCTURAL_RECONCILIATIONS = [
+  {
+    rule: 'Any of C, E, A, P or L implies V',
+    matrixSays:
+      '§3.2 lists action letters without V in many cells — Tournament Admin is "A P" on Draw/fixture generation and Schedule & venue allocation, "A L" on Result approval & lock, "A P" on Medal allocation; Competition Manager is "C E" on several rows; Super Admin is "E" on others.',
+    phaseSays:
+      '§5.6 has the Tournament Admin approve and publish the draw, §12.6 names them a primary user of the Draw Console, and §9.1 builds their dashboard from this same data.',
+    rationale:
+      'Read literally, an Admin could not open the draw they must approve. Treated as one notation rule rather than twenty corrected cells. It never widens access: a role with no cell still has none, and scope and qualifiers still apply.',
+  },
+];
+
 /** The matrix with reconciliations applied — what the system actually enforces. */
 export const EFFECTIVE_MATRIX: Record<TmsFunction, MatrixRow> = (() => {
   const out = JSON.parse(JSON.stringify(SPEC_MATRIX)) as Record<TmsFunction, MatrixRow>;
@@ -381,6 +397,27 @@ function qualifierSatisfied(q: Qualifier, user: User, ctx: AccessContext): Acces
   }
 }
 
+/**
+ * Structural reading of the §3.2 matrix: any of C, E, A, P or L implies V.
+ *
+ * The matrix lists Tournament Admin as "A P" on Draw/fixture generation, "A P"
+ * on Schedule & venue allocation, "A L" on Result approval, and so on — with no
+ * V. Read literally that would forbid an Admin from opening the draw they are
+ * required to approve. The document plainly does not intend that: §5.6 has the
+ * Admin approve and publish the draw, §12.6 lists them as a primary user of the
+ * Draw Console, and §9.1 builds their dashboard out of exactly this data.
+ *
+ * This is a systemic notation gap rather than a handful of wrong cells, so it is
+ * handled here as one documented rule instead of twenty individual
+ * reconciliations. It never widens access: a role with no cell at all still has
+ * none, and scope and qualifiers still apply.
+ */
+const ACTION_PERMS: Permission[] = ['C', 'E', 'A', 'P', 'L'];
+
+function grantImpliesView(grant: Grant): boolean {
+  return grant.perms.some((p) => ACTION_PERMS.includes(p));
+}
+
 /** Primary authorization check. Every route and UI action goes through this. */
 export function can(
   user: User,
@@ -391,6 +428,15 @@ export function can(
   const grant = EFFECTIVE_MATRIX[fn][user.role];
   if (!grant) {
     return { allowed: false, reason: `${user.role} has no access to ${FUNCTION_LABELS[fn]}` };
+  }
+  if (perm === 'V' && !grant.perms.includes('V') && grantImpliesView(grant)) {
+    const scoped = inScope(user, ctx);
+    if (!scoped.allowed) return scoped;
+    if (grant.qualifier) {
+      const q = qualifierSatisfied(grant.qualifier, user, ctx);
+      if (!q.allowed) return q;
+    }
+    return ALLOW;
   }
   if (!grant.perms.includes(perm)) {
     const have = grant.perms.length ? grant.perms.join('') : (grant.special?.join('/') ?? '—');
