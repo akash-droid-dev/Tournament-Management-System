@@ -13,12 +13,17 @@
 
 import type {
   GenderCategory,
+  MatchParams,
   MedalRule,
   OutcomeType,
   ParticipationType,
   ScoreEvent,
   StandingsRow,
 } from '../domain/types.ts';
+
+// MatchParams lives in the domain so the Format and the scoring engine share
+// one definition. Re-exported here so sport templates need only this module.
+export type { MatchParams };
 
 /** One scoring action a Scorer can record, before the engine validates it. */
 export interface ScoreEventInput {
@@ -79,23 +84,6 @@ export interface TieBreakerSpec {
   requiresHeadToHead?: boolean;
   /** §7.5.22 last resort — outcome and witnesses must be recorded. */
   isDrawOfLots?: boolean;
-}
-
-export interface MatchParams {
-  durationMins: number;
-  periods: number;
-  periodMins: number;
-  breakMins: number;
-  /** Extra time / golden raid / shared points, described for the UI. */
-  tieBreakMode: string;
-  pointsWin: number;
-  pointsDraw: number;
-  pointsLoss: number;
-  /** Losing by this margin or less earns `pointsBonus` (league only). */
-  bonusPointMargin?: number;
-  pointsBonus?: number;
-  /** Slot length the scheduler books = play + break + turnaround. */
-  slotMins: number;
 }
 
 export interface ScoringSummary {

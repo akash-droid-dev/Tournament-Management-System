@@ -639,6 +639,30 @@ export interface ProgressionRule {
   seedApart: boolean;
 }
 
+/**
+ * Match parameters — §4.4. The sport template supplies the defaults and the
+ * Format may override them per event. Defined here rather than in the sport
+ * registry so there is exactly one definition: a second, near-identical shape
+ * is how a format's period count and the scoring engine's period count drift
+ * apart.
+ */
+export interface MatchParams {
+  durationMins: number;
+  periods: number;
+  periodMins: number;
+  breakMins: number;
+  /** Kabaddi tie resolution in knockout: extra halves then a golden raid. */
+  tieBreakMode: string;
+  pointsWin: number;
+  pointsDraw: number;
+  pointsLoss: number;
+  /** Kabaddi league bonus: 1 point for losing by this margin or less. */
+  bonusPointMargin?: number;
+  pointsBonus?: number;
+  /** Slot length the scheduler books = play + break + turnaround. */
+  slotMins: number;
+}
+
 export interface Format {
   formatId: string;
   eventId: string;
@@ -648,21 +672,7 @@ export interface Format {
   /** 1 = single meeting, 2 = home-and-away / double round-robin. */
   matchesPerPairing: 1 | 2;
   progressionRules: ProgressionRule[];
-  /** Match parameters — §4.4. Sport template supplies the defaults. */
-  matchParams: {
-    durationMins: number;
-    periods: number;
-    periodMins: number;
-    breakMins: number;
-    /** Kabaddi tie resolution in knockout: extra halves then a golden raid. */
-    tieBreakMode: string;
-    pointsWin: number;
-    pointsDraw: number;
-    pointsLoss: number;
-    /** Kabaddi league bonus: 1 point for losing by this margin or less. */
-    bonusPointMargin?: number;
-    pointsBonus?: number;
-  };
+  matchParams: MatchParams;
   approvalStatus: ApprovalStatus;
   approvedBy?: string;
   approvedAt?: ISODateTime;
