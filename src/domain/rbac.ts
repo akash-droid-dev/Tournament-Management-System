@@ -311,11 +311,11 @@ export const STRUCTURAL_RECONCILIATIONS = [
   {
     rule: 'Any of C, E, A, P or L implies V',
     matrixSays:
-      '§3.2 lists action letters without V in many cells — Tournament Admin is "A P" on Draw/fixture generation and Schedule & venue allocation, "A L" on Result approval & lock, "A P" on Medal allocation; Competition Manager is "C E" on several rows; Super Admin is "E" on others.',
+      '§3.2 lists action letters and named verbs without V in many cells — Tournament Admin is "A P" on Draw/fixture generation and Schedule & venue allocation, "A L" on Result approval & lock; Super Admin is "L" on Result approval and "E" on others; the Technical Official is only "Verify" on Result approval; the Competition Manager is only "Recommend".',
     phaseSays:
-      '§5.6 has the Tournament Admin approve and publish the draw, §12.6 names them a primary user of the Draw Console, and §9.1 builds their dashboard from this same data.',
+      '§5.6 has the Tournament Admin approve and publish the draw, §12.6 names them a primary user of the Draw Console, §9.1 builds their dashboard from this same data, and §8.2 has the Technical Official cross-check a result against the signed scoresheet.',
     rationale:
-      'Read literally, an Admin could not open the draw they must approve. Treated as one notation rule rather than twenty corrected cells. It never widens access: a role with no cell still has none, and scope and qualifiers still apply.',
+      'Read literally, an Admin could not open the draw they must approve, nor a Technical Official read the result they must verify. Treated as one notation rule — any letter or named verb implies V — rather than twenty corrected cells. It never widens access: a role with no cell still has none, and scope and qualifiers still apply.',
   },
 ];
 
@@ -414,8 +414,15 @@ function qualifierSatisfied(q: Qualifier, user: User, ctx: AccessContext): Acces
  */
 const ACTION_PERMS: Permission[] = ['C', 'E', 'A', 'P', 'L'];
 
+/**
+ * The same reading applies to the matrix's named verbs. §3.2 gives the
+ * Technical Official only "Verify" on Result approval & lock and the
+ * Competition Manager only "Recommend" — yet §8.2 requires the Technical
+ * Official to cross-check the result against the signed scoresheet, which is
+ * impossible without reading it. A verb that acts on a row implies sight of it.
+ */
 function grantImpliesView(grant: Grant): boolean {
-  return grant.perms.some((p) => ACTION_PERMS.includes(p));
+  return grant.perms.some((p) => ACTION_PERMS.includes(p)) || (grant.special?.length ?? 0) > 0;
 }
 
 /** Primary authorization check. Every route and UI action goes through this. */

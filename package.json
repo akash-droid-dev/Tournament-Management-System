@@ -1,7 +1,7 @@
 {
   "name": "@gms/tms",
   "version": "1.0.0",
-  "description": "Tournament Management System (TMS) module for the Games Management System (GMS) — Kabaddi configuration",
+  "description": "Tournament Management System (TMS) module for the Games Management System (GMS) \u2014 Kabaddi configuration",
   "type": "module",
   "engines": {
     "node": ">=22.6.0"
@@ -11,12 +11,14 @@
     "seed": "node src/seed/cli.ts",
     "demo": "node src/seed/cli.ts --reset && node src/api/server.ts",
     "test": "node --test --experimental-test-isolation=none test/",
-    "typecheck": "tsc --noEmit"
-  },
-  "devDependencies": {
-    "@types/node": "^22.20.3",
-    "typescript": "^5.7.2"
+    "typecheck": "tsc --noEmit",
+    "test:ui": "node --test test/ui.smoke.test.ts"
   },
   "license": "UNLICENSED",
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "@types/node": "^22.10.2"
+  },
+  "optionalDependencies": {}
 }

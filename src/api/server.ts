@@ -250,6 +250,9 @@ add('GET', '/api/events/:id/utilisation', ({ params, service }) =>
 add('GET', '/api/events/:id/standings', ({ params, service }) => service.store.listStandings(params.id as string));
 add('POST', '/api/events/:id/recompute', ({ params, service }) => service.recomputeEvent(params.id as string));
 add('GET', '/api/events/:id/rankings', ({ params, service }) => service.rankings(params.id as string));
+add('GET', '/api/events/:id/medals/verify', ({ user, params, service }) =>
+  service.verifyMedalList(user, params.id as string),
+);
 add('POST', '/api/events/:id/medals/generate', ({ user, params, service }) =>
   service.generateMedals(user, params.id as string),
 );
