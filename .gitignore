@@ -5,3 +5,4 @@ data/*.db-journal
 data/*.db-wal
 data/*.db-shm
 .DS_Store
+*.tmp.mjs
