@@ -1294,7 +1294,10 @@ export class TmsService {
   }
 
   approvalQueue(user: User, tournamentId: string): ReturnType<typeof approval.approvalQueue> {
-    this.#require(user, 'result.approval', 'A', { tournamentId });
+    // Reading the queue is a view action. The Technical Official who verifies
+    // and the Competition Manager who recommends both need it, and neither
+    // holds approve rights.
+    this.#require(user, 'result.approval', 'V', { tournamentId });
     const t = this.#tournament(tournamentId);
     return approval.approvalQueue(
       this.store.listMatchesForTournament(tournamentId),
@@ -1375,15 +1378,48 @@ export class TmsService {
     };
   }
 
-  generateMedals(user: User, eventId: string): ReturnType<typeof verifyMedals> {
-    const e = this.#event(eventId);
-    this.#require(user, 'medals', 'C', { tournamentId: e.tournamentId, sportId: e.sport });
-    const openProtests = this.store
+  #openProtestMatchIds(eventId: string): string[] {
+    return this.store
       .listProtests(eventId)
       .filter((p) => p.status === 'Filed' || p.status === 'Under Review')
       .map((p) => p.matchId);
-    const v = verifyMedals(this.#medalInput(eventId), openProtests);
-    if (v.rows.length) this.store.saveMedals(v.rows);
+  }
+
+  /**
+   * §9.3 checklist without side effects.
+   *
+   * The Medal Management screen needs the verification result every time it
+   * renders. Reading must never write: `generateMedals` persists rows, so a
+   * screen that called it on render would overwrite the published medal list
+   * with a freshly derived, unpublished one.
+   */
+  verifyMedalList(user: User, eventId: string): ReturnType<typeof verifyMedals> {
+    const e = this.#event(eventId);
+    this.#require(user, 'medals', 'V', { tournamentId: e.tournamentId, sportId: e.sport });
+    return verifyMedals(this.#medalInput(eventId), this.#openProtestMatchIds(eventId));
+  }
+
+  generateMedals(user: User, eventId: string): ReturnType<typeof verifyMedals> {
+    const e = this.#event(eventId);
+    this.#require(user, 'medals', 'C', { tournamentId: e.tournamentId, sportId: e.sport });
+    const v = verifyMedals(this.#medalInput(eventId), this.#openProtestMatchIds(eventId));
+    if (v.rows.length) {
+      // Regenerating must not silently un-publish an already published medal
+      // list: carry the verification, approval and publication stamps forward
+      // for any participant whose position and medal are unchanged. A row that
+      // genuinely moved loses them, which is correct — it needs re-verifying.
+      const existing = new Map(this.store.listMedals(eventId).map((m) => [m.participantRef, m]));
+      const merged = v.rows.map((row) => {
+        const prior = existing.get(row.participantRef);
+        if (!prior?.publishedAt) return row;
+        const unchanged = prior.position === row.position && prior.medal === row.medal;
+        return unchanged
+          ? { ...row, verifiedBy: prior.verifiedBy, approvedBy: prior.approvedBy, publishedAt: prior.publishedAt }
+          : row;
+      });
+      this.store.saveMedals(merged);
+      v.rows = merged;
+    }
     this.#commit([
       {
         userId: user.userId, userName: user.name, role: user.role, tournamentId: e.tournamentId,
@@ -1399,11 +1435,7 @@ export class TmsService {
     this.#require(user, 'medals', 'P', { tournamentId: e.tournamentId });
     const p = canPublish(user);
     if (!p.allowed) deny(p.reason);
-    const openProtests = this.store
-      .listProtests(eventId)
-      .filter((x) => x.status === 'Filed' || x.status === 'Under Review')
-      .map((x) => x.matchId);
-    const v = verifyMedals(this.#medalInput(eventId), openProtests);
+    const v = verifyMedals(this.#medalInput(eventId), this.#openProtestMatchIds(eventId));
     if (!v.ok) bad(`medals cannot be published: ${v.blockers.join('; ')}`);
     const out = approveAndPublishMedals(v.rows, verifiedBy, user.userId);
     if (out.error) bad(out.error);
@@ -1582,7 +1614,7 @@ export class TmsService {
           medalTally: this.medalTally(tournamentId).slice(0, 10),
           publishStatus: events.map((e) => ({
             eventId: e.eventId,
-            discipline: e.discipline,
+            discipline: `${e.discipline} ${e.genderCategory === 'M' ? 'Men' : e.genderCategory === 'W' ? 'Women' : e.genderCategory}`,
             drawStatus: e.drawStatus,
             scheduleStatus: this.store.getScheduleState(e.eventId).status,
             medalsPublished: this.store.listMedals(e.eventId).some((m) => m.publishedAt),
@@ -1600,7 +1632,7 @@ export class TmsService {
             const rs = this.store.listResults(e.eventId);
             return {
               eventId: e.eventId,
-              discipline: e.discipline,
+              discipline: `${e.discipline} ${e.genderCategory === 'M' ? 'Men' : e.genderCategory === 'W' ? 'Women' : e.genderCategory}`,
               status: e.status,
               entries: this.store.listEntries(e.eventId).filter((x) => x.entryStatus === 'Confirmed').length,
               formatApproved: this.store.getFormatForEvent(e.eventId)?.approvalStatus === 'Approved',

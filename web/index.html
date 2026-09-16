@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TMS · Kabaddi</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🤾</text></svg>">
+</head>
+<body>
+<div id="boot" class="boot">
+  <div class="boot-card">
+    <div class="boot-spinner" aria-hidden="true"></div>
+    <p>Loading Tournament Management System…</p>
+  </div>
+</div>
+
+<header class="topbar" hidden>
+  <div class="topbar-left">
+    <span class="brand"><span class="brand-mark">TMS</span><span class="brand-sub">Kabaddi</span></span>
+    <span class="tournament-chip" id="tournament-chip"></span>
+  </div>
+  <div class="topbar-right">
+    <label class="role-switch">
+      <span class="role-switch-label">Signed in as</span>
+      <select id="user-select" aria-label="Acting user"></select>
+    </label>
+    <span class="role-badge" id="role-badge"></span>
+  </div>
+</header>
+
+<div class="layout" hidden>
+  <nav class="sidebar" id="sidebar" aria-label="Screens"></nav>
+  <main class="main" id="main" tabindex="-1"></main>
+</div>
+
+<div class="toast-stack" id="toasts" aria-live="polite"></div>
+
+<dialog class="modal" id="modal">
+  <form method="dialog" id="modal-form">
+    <h2 id="modal-title"></h2>
+    <div id="modal-body"></div>
+    <footer class="modal-actions">
+      <button value="cancel" class="btn btn-ghost" type="submit">Cancel</button>
+      <button value="ok" class="btn btn-primary" type="submit" id="modal-ok">Confirm</button>
+    </footer>
+  </form>
+</dialog>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>
