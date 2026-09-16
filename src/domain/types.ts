@@ -674,9 +674,24 @@ export interface Format {
 // Draw record — §7.2.9 reproducibility
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** One position in a knockout bracket or a group slate. */
+export interface DrawSlot {
+  slot: number;
+  /** Bracket position expressed as the seed that conventionally occupies it. */
+  nominalSeed: number;
+  groupId?: string;
+  occupant:
+    | { kind: 'entry'; entryId: string; displayName: string; unitId: string; seedNo?: number }
+    | { kind: 'bye' };
+}
+
 export interface DrawRecord {
   drawId: string;
   eventId: string;
+  /** Full slot map — the basis for the §10.1 draw sheet and its bye markers. */
+  slots: DrawSlot[];
+  /** RNG algorithm identifier, stored with the seed so a replay is exact. */
+  rngAlgorithm: string;
   /** §7.2.9 the RNG seed must be stored so any draw is reproducible. */
   rngSeed: string;
   bracketSize: number;
