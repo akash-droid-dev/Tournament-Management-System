@@ -229,19 +229,36 @@ export function detectConflicts(ctx: SchedulingContext): ConflictReport {
   const byNo = new Map(ctx.matches.map((m) => [m.matchNo, m]));
   for (const m of scheduled) {
     for (const side of [m.sideA, m.sideB]) {
-      if (side.kind !== 'placeholder') continue;
-      const feeder = byNo.get(side.matchNo);
-      if (!feeder || feeder.byeFlag) continue;
-      if (!feeder.scheduledDate || !feeder.scheduledTime) continue;
-      const sf = span(feeder);
-      const sm = span(m);
-      if (sm.start < sf.end) {
-        hard.push({
-          severity: 'hard',
-          code: 'ROUND_ORDER',
-          message: `${m.matchNo} is scheduled before its feeder ${feeder.matchNo} finishes`,
-          matchNos: [m.matchNo, feeder.matchNo],
-        });
+      if (side.kind === 'placeholder') {
+        const feeder = byNo.get(side.matchNo);
+        if (!feeder || feeder.byeFlag) continue;
+        if (!feeder.scheduledDate || !feeder.scheduledTime) continue;
+        const sf = span(feeder);
+        const sm = span(m);
+        if (sm.start < sf.end) {
+          hard.push({
+            severity: 'hard',
+            code: 'ROUND_ORDER',
+            message: `${m.matchNo} is scheduled before its feeder ${feeder.matchNo} finishes`,
+            matchNos: [m.matchNo, feeder.matchNo],
+          });
+        }
+      } else if (side.kind === 'placeholder-standing') {
+        // A fixture fed by a group table cannot start until *every* match in
+        // that group has finished, since the qualifier is not known before
+        // then. Checking only direct feeders misses this entirely, which is
+        // how a semi-final ends up scheduled against its own group stage.
+        const groupEnd = latestEndOfGroup(ctx, side.groupId, span);
+        if (groupEnd === undefined) continue;
+        const sm = span(m);
+        if (sm.start < groupEnd) {
+          hard.push({
+            severity: 'hard',
+            code: 'ROUND_ORDER',
+            message: `${m.matchNo} needs the ${side.groupId} table, but is scheduled before ${side.groupId} finishes`,
+            matchNos: [m.matchNo],
+          });
+        }
       }
     }
   }
@@ -344,6 +361,21 @@ export function detectConflicts(ctx: SchedulingContext): ConflictReport {
 /** §6.6 travel-time buffer between venues for an official. */
 export const TRAVEL_BUFFER_MINS = 60;
 
+/** When the last fixture of a group finishes, in absolute minutes. */
+function latestEndOfGroup(
+  ctx: SchedulingContext,
+  groupId: string,
+  span: (m: Match) => { start: number; end: number },
+): number | undefined {
+  const inGroup = ctx.matches.filter(
+    (m) => m.stage === 'group' && (m.groupId ?? 'G1') === groupId && !m.byeFlag,
+  );
+  if (!inGroup.length) return undefined;
+  // Any unscheduled match in the group means the end is not yet knowable.
+  if (inGroup.some((m) => !m.scheduledDate || !m.scheduledTime)) return undefined;
+  return Math.max(...inGroup.map((m) => span(m).end));
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Auto-scheduler
 // ─────────────────────────────────────────────────────────────────────────────
@@ -419,9 +451,22 @@ export function autoSchedule(ctx: SchedulingContext): ScheduleResult {
     // advancing side is owed.
     let earliest = -Infinity;
     for (const side of [m.sideA, m.sideB]) {
-      if (side.kind !== 'placeholder') continue;
-      const f = placed.get(side.matchNo);
-      if (f) earliest = Math.max(earliest, f.end + sport.restGap.hardMins);
+      if (side.kind === 'placeholder') {
+        const f = placed.get(side.matchNo);
+        if (f) earliest = Math.max(earliest, f.end + sport.restGap.hardMins);
+      } else if (side.kind === 'placeholder-standing') {
+        // The qualifier is unknown until the whole group has played, so the
+        // fixture must sit after the last group match plus the rest a
+        // qualifying side is owed. Because group fixtures sort ahead of
+        // knockout ones, they are already placed by the time we get here.
+        const groupMatches = ctx.matches.filter(
+          (x) => x.stage === 'group' && (x.groupId ?? 'G1') === side.groupId && !x.byeFlag,
+        );
+        for (const g of groupMatches) {
+          const p = placed.get(g.matchNo);
+          if (p) earliest = Math.max(earliest, p.end + sport.restGap.hardMins);
+        }
+      }
     }
 
     const parts = participantsOf(m);
