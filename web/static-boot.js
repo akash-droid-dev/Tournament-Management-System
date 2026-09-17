@@ -24,6 +24,11 @@
 import { MemoryStore } from './lib/store/memory.js';
 import { TmsService } from './lib/api/service.js';
 import { handleRequest } from './lib/api/routes.js';
+// A module, not a fetched JSON file. An ES import is the one loading mechanism
+// every host allows — some sandboxes (the Claude artifact viewer among them)
+// restrict page-initiated fetches, and a demo that cannot load its own data is
+// no demo. It costs one extra `export default` at build time.
+import snapshot from './seed.js';
 
 const boot = document.getElementById('boot');
 const fail = (heading, detail) => {
@@ -34,10 +39,6 @@ try {
   // The seeder runs in Node at build time and dumps the finished store, so the
   // page starts from a genuinely seeded tournament — ten phases already driven
   // through — instead of spending three seconds re-seeding on every load.
-  const res = await fetch(new URL('./seed.json', import.meta.url));
-  if (!res.ok) throw new Error(`seed.json responded ${res.status}`);
-  const snapshot = await res.json();
-
   const store = MemoryStore.fromJSON(snapshot);
   const service = new TmsService(store);
 

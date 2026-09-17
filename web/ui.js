@@ -250,6 +250,46 @@ export function prompt({ title, fields, confirmLabel = 'Confirm' }) {
   });
 }
 
+
+/**
+ * Show a generated document in the modal.
+ *
+ * Not a download. A `<a download>` is inert wherever the page is sandboxed
+ * (the Claude artifact viewer blocks page-initiated saves outright), and a
+ * button that silently does nothing is worse than no button. Rendering the
+ * export in place works on every host, and the reader can still select and
+ * copy it. The §5.8 audit entry is written either way, because the export was
+ * genuinely built.
+ */
+export function showDocument({ title, body, kind }) {
+  const dialog = document.getElementById('modal');
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-ok').textContent = 'Close';
+  const host = document.getElementById('modal-body');
+
+  if (kind === 'html') {
+    host.replaceChildren(
+      el('iframe', {
+        class: 'doc-frame',
+        srcdoc: body,
+        title,
+        // The export is our own HTML, but rendering it inert costs nothing.
+        sandbox: '',
+      }),
+    );
+  } else {
+    host.replaceChildren(
+      el('p', { class: 'card-note' }, 'Select and copy, or use your browser’s print dialog from the printable version.'),
+      el('pre', { class: 'doc-text', tabindex: '0' }, body),
+    );
+  }
+  // Nothing to confirm — hide the cancel button for a read-only view.
+  const cancel = document.querySelector('#modal-form button[value="cancel"]');
+  if (cancel) cancel.hidden = true;
+  dialog.addEventListener('close', () => { if (cancel) cancel.hidden = false; }, { once: true });
+  dialog.showModal();
+}
+
 /** Lookup helper: entry ID → display name, from a list of entries. */
 export function nameOf(entries, entryId) {
   return entries.find((e) => e.entryId === entryId)?.participantRef?.displayName ?? entryId ?? '—';
