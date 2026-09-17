@@ -10,6 +10,11 @@ progression, medals and the games-wide medal tally.
 Built from the *TMS Functional Workflow Document v1.0*. Every module cites the
 section it implements, so the code and the document can be read side by side.
 
+**[▶ Open the live demo](https://akash-droid-dev.github.io/Tournament-Management-System/)**
+— the real rules running in your browser, no install. See
+[Try it in a browser](#try-it-in-a-browser) for what that does and does not
+prove.
+
 ---
 
 ## Run it
@@ -28,7 +33,8 @@ Or in one step: `npm run demo`.
 | `npm run seed` | Drives a full tournament through all ten phases (`-- --reset` to wipe first) |
 | `npm test` | 255 tests (`node:test`); the browser pass skips itself without Playwright |
 | `npm run test:ui` | Browser smoke test alone — needs `npm i -D playwright` |
-| `npm run typecheck` | `tsc --noEmit` over `src/` and `test/` |
+| `npm run typecheck` | `tsc --noEmit` over all three configs (server, UI, static) |
+| `npm run build:static` | Builds `dist/` — the module with no server, for GitHub Pages |
 
 Sign in from the picker in the top bar. The demo seeds one user per role plus
 the whole officials panel; switching user re-renders every screen through that
@@ -43,6 +49,64 @@ role's permissions.
 | `vm1` | Venue Manager | Mat utilisation heatmap, run sheet |
 | `tm-mh` | Team Manager | Own unit only, protest window timers |
 | `vw1` | Viewer | Public portal — published data only |
+
+---
+
+## Try it in a browser
+
+The [live demo](https://akash-droid-dev.github.io/Tournament-Management-System/)
+is not a mock-up of the screens. It is this module with its storage swapped.
+
+`docs/02-architecture.md` claims the store is "the seam a host GMS replaces".
+The Pages build is that claim being cashed: `src/store/memory.ts` implements the
+same `TmsStoreLike` contract over plain Maps instead of `node:sqlite`, and
+because the domain, sport rules, engines and workflow have **no platform
+imports at all**, they run unchanged in a tab.
+
+```
+   SERVER                                  BROWSER (GitHub Pages)
+   ──────                                  ──────────────────────
+   web/  ── fetch ──▶ node:http            web/  ── direct call ──┐
+                          │                                       │
+                          ▼                                       ▼
+                    src/api/routes.ts  ◀── the same route table ──┘
+                          │
+                          ▼
+                    src/api/service.ts
+                          │
+      domain · sports · engines · workflow   ← identical, byte for byte
+                          │
+                          ▼
+              TmsStoreLike (the seam)
+                    │            │
+              node:sqlite     Maps
+```
+
+**So the rules are real.** On the published page, crediting a raid point to the
+defending side is refused by `src/sports/kabaddi.ts`; a hand-entered all-out is
+refused because the engine derives it; a Scorer approving a result is refused by
+the §3.2 matrix. Verified in a headless browser against an API-free static
+server — nine pages, seven roles, **zero** network requests to `/api/*`:
+
+```
+  open console                     200   Check-in
+  start (no attendance)            400   attendance must be confirmed before the match can start (§7.2)
+  start                            200   Live
+  raid-touch A 4                   200   H1 00:30 · 4–0 · raid #2 by B · on mat 7v3
+  raid-touch A 3 (wrong raider)    400   B is raiding; a raid point cannot be credited to A
+  all-out entered by hand          400   "all-out" is derived by the rules engine and cannot be entered directly
+  Scorer approves own result       403   Scorer has no access to Result approval & lock
+```
+
+**What it does not prove.** Storage is per-tab: a reload starts over from the
+seeded snapshot, and nothing is shared between visitors. That is correct for a
+demo and wrong for a tournament, which is what the banner on the page says.
+One behaviour also genuinely differs — SQLite enforces foreign keys and the
+Maps do not — and that divergence is pinned down by a test rather than left to
+be discovered (`test/store-contract.test.ts`).
+
+The 43 store-contract tests run every assertion against **both**
+implementations, so the seam cannot quietly drift.
 
 ---
 

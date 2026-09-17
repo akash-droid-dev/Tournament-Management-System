@@ -16,7 +16,7 @@ import { getSport } from '../sports/registry.ts';
 import { dutyRoster } from '../engines/officials.ts';
 import { medalTally } from '../engines/medals.ts';
 import { toMins, toTime } from '../engines/scheduler.ts';
-import type { TmsStore } from '../store/db.ts';
+import type { TmsStoreLike } from '../store/store.ts';
 
 export interface ReportDefinition {
   key: string;
@@ -72,7 +72,7 @@ export interface ReportScope {
 }
 
 /** §5.8 — external reports see approved (and, where relevant, published) data. */
-function visibleResults(store: TmsStore, results: Result[], def: ReportDefinition, scope: ReportScope): Result[] {
+function visibleResults(store: TmsStoreLike, results: Result[], def: ReportDefinition, scope: ReportScope): Result[] {
   void store;
   if (def.audience === 'external') return results.filter((r) => r.resultStatus === 'Approved');
   return scope.includeProvisional ? results : results.filter((r) => r.resultStatus === 'Approved');
@@ -88,7 +88,7 @@ function sideNames(m: Match): [string, string] {
   return [m.sideA.displayName, m.sideB.displayName];
 }
 
-export function buildReport(store: TmsStore, key: string, scope: ReportScope): ReportOutput {
+export function buildReport(store: TmsStoreLike, key: string, scope: ReportScope): ReportOutput {
   const def = REPORTS.find((r) => r.key === key);
   if (!def) throw new Error(`unknown report "${key}"; see the §10 catalogue`);
   const at = new Date().toISOString();

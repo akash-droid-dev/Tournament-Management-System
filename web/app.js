@@ -28,13 +28,24 @@ const state = {
 
 // ── API client ────────────────────────────────────────────────────────────
 
-async function request(method, path, body) {
-  const url = new URL(path, location.origin);
-  const res = await fetch(url, {
+/**
+ * The transport.
+ *
+ * Swappable on purpose. The default talks to the Node server over `fetch`;
+ * the static build calls `setTransport` with one that runs the very same route
+ * table in this tab, against an in-memory store. Either way this file, every
+ * screen, and every rule the screens meet are unchanged — the only difference
+ * is where the request lands.
+ *
+ * A transport takes `(method, path, body, userId)` and resolves to
+ * `{ status, body }`, mirroring what `handleRequest` returns in `routes.ts`.
+ */
+async function fetchTransport(method, path, body, userId) {
+  const res = await fetch(new URL(path, location.origin), {
     method,
     headers: {
       'content-type': 'application/json',
-      ...(state.user ? { 'x-tms-user': state.user.userId } : {}),
+      ...(userId ? { 'x-tms-user': userId } : {}),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
@@ -45,12 +56,29 @@ async function request(method, path, body) {
   } catch {
     data = text;
   }
-  if (!res.ok) {
-    // The server's message names the rule that rejected the action. That is
-    // exactly what an operator needs to see, so it is surfaced verbatim.
-    const message = (data && data.error) || `${res.status} ${res.statusText}`;
+  return { status: res.status, body: data, statusText: res.statusText };
+}
+
+let transport = fetchTransport;
+
+/** Point the UI at a different host. Used by the static build's bootstrap. */
+export function setTransport(next) {
+  transport = next;
+}
+
+async function request(method, path, body) {
+  const { status, body: data, statusText } = await transport(
+    method,
+    path,
+    body,
+    state.user ? state.user.userId : undefined,
+  );
+  if (status < 200 || status >= 300) {
+    // The message names the rule that rejected the action. That is exactly
+    // what an operator needs to see, so it is surfaced verbatim.
+    const message = (data && data.error) || `${status} ${statusText ?? ''}`.trim();
     const err = new Error(message);
-    err.status = res.status;
+    err.status = status;
     throw err;
   }
   return data;
@@ -59,6 +87,19 @@ async function request(method, path, body) {
 const api = {
   get: (p) => request('GET', p),
   post: (p, b) => request('POST', p, b ?? {}),
+  /**
+   * The whole response rather than just its body — needed by the §10 exports,
+   * which carry a content type and a filename alongside their payload.
+   */
+  async raw(method, p, b) {
+    const out = await transport(method, p, b, state.user ? state.user.userId : undefined);
+    if (out.status < 200 || out.status >= 300) {
+      const err = new Error((out.body && out.body.error) || `${out.status}`);
+      err.status = out.status;
+      throw err;
+    }
+    return out;
+  },
   /** Run an action, toast the outcome, then re-render. Screens use this. */
   async act(label, fn, { silent = false } = {}) {
     try {
@@ -197,6 +238,7 @@ function context() {
     state,
     api,
     go,
+    toast,
     user: state.user,
     tournament: state.tournament,
     sport: state.sport,
@@ -294,6 +336,13 @@ function renderTopbar() {
 // ── Boot ──────────────────────────────────────────────────────────────────
 
 async function boot() {
+  // The static build installs its in-tab transport on the global before
+  // importing this module, so the UI never reaches for a server that is not
+  // there. With no override, the default `fetch` transport stands.
+  if (typeof globalThis.__tmsTransport === 'function') {
+    setTransport(globalThis.__tmsTransport);
+  }
+
   const bootstrap = await api.get('/api/bootstrap');
   state.users = bootstrap.users;
   state.tournaments = bootstrap.tournaments;

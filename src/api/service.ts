@@ -58,7 +58,7 @@ import { approveAndPublishMedals, generateRankings, medalTally, verifyMedals } f
 import * as phases from '../workflow/phases.ts';
 import * as approval from '../workflow/result-approval.ts';
 import * as exceptions from '../workflow/exceptions.ts';
-import { TmsStore } from '../store/db.ts';
+import type { TmsStoreLike } from '../store/store.ts';
 
 export class ServiceError extends Error {
   readonly status: number;
@@ -82,10 +82,10 @@ const missing: (what: string) => never = (what) => {
 };
 
 export class TmsService {
-  readonly store: TmsStore;
+  readonly store: TmsStoreLike;
   readonly audit = new AuditLog();
 
-  constructor(store: TmsStore) {
+  constructor(store: TmsStoreLike) {
     this.store = store;
     // Mirror every in-process audit write into the append-only store table.
     this.audit.addSink((e) => this.store.appendAudit(e));
@@ -708,7 +708,7 @@ export class TmsService {
     ]);
   }
 
-  publishSchedule(user: User, eventId: string): { state: ReturnType<TmsStore['getScheduleState']>; notification: NotificationEvent } {
+  publishSchedule(user: User, eventId: string): { state: ReturnType<TmsStoreLike['getScheduleState']>; notification: NotificationEvent } {
     const e = this.#event(eventId);
     this.#require(user, 'schedule.allocation', 'P', { tournamentId: e.tournamentId });
     const p = canPublish(user);

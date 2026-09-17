@@ -36,18 +36,13 @@ import type {
 } from '../domain/types.ts';
 import type { OfficialSnapshot } from '../engines/officials.ts';
 import type { ParticipantSnapshot } from '../engines/eligibility.ts';
+import type { AuditQuery, ScheduleState, TmsStoreLike } from './store.ts';
+
+export type { ScheduleState } from './store.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-export interface ScheduleState {
-  eventId: string;
-  status: ScheduleStatus;
-  acknowledgedSoft: string[];
-  publishedAt?: string;
-  versionNo: number;
-}
-
-export class TmsStore {
+export class TmsStore implements TmsStoreLike {
   #db: DatabaseSync;
 
   constructor(path = ':memory:') {
@@ -533,14 +528,7 @@ export class TmsStore {
     return row?.n ?? 0;
   }
 
-  queryAudit(q: {
-    tournamentId?: string;
-    entityType?: string;
-    entityId?: string;
-    userId?: string;
-    action?: string;
-    limit?: number;
-  }): AuditLogEntry[] {
+  queryAudit(q: AuditQuery): AuditLogEntry[] {
     const where: string[] = [];
     const params: (string | number | null)[] = [];
     if (q.tournamentId) {
