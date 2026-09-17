@@ -67,6 +67,19 @@ const BANNER_CSS = `
 }
 `;
 
+/**
+ * Artifact-only overrides.
+ *
+ * The artifact skeleton pads :root by the phone's safe-area insets and sets a
+ * 14px system font on an off-white ground. This app paints its own full-height
+ * chrome, so it reclaims the height and the background, and keeps the sticky
+ * top bar clear of the system bars rather than pinning it to 0.
+ */
+const ARTIFACT_CSS = `
+:root { background: var(--bg); }
+.topbar { top: env(safe-area-inset-top, 0px); }
+`;
+
 async function main(): Promise<void> {
   console.log('\n  Building the static bundle\n  ────────────────────────────────────────');
 
@@ -82,16 +95,18 @@ async function main(): Promise<void> {
   );
 
   // ── 2. Seed in Node, dump for the browser ─────────────────────────────────
-  step(2, 'seeding a tournament and dumping it to seed.json');
+  step(2, 'seeding a tournament and dumping it to seed.js');
   const store = new MemoryStore();
   const summary = seedKabaddiTournament(store);
   const snapshot = JSON.stringify(store.toJSON());
-  await writeFile(join(OUT, 'seed.json'), snapshot);
+  // An ES module rather than a JSON file: see the note in web/static-boot.js.
+  await writeFile(join(OUT, 'seed.js'), `export default ${snapshot};\n`);
 
   // ── 3. Ship the UI ────────────────────────────────────────────────────────
   step(3, 'copying web/ and rewriting the entry point');
   await cp(join(ROOT, 'web'), OUT, { recursive: true });
 
+  const css = await readFile(join(ROOT, 'web/styles.css'), 'utf8');
   const html = await readFile(join(ROOT, 'web/index.html'), 'utf8');
   const staticHtml = html
     // static-boot.js installs the in-tab transport, then imports app.js.
@@ -101,7 +116,6 @@ async function main(): Promise<void> {
   if (staticHtml === html) throw new Error('index.html did not match the expected entry script — the build would ship a page that reaches for a server');
   await writeFile(join(OUT, 'index.html'), staticHtml);
 
-  const css = await readFile(join(ROOT, 'web/styles.css'), 'utf8');
   await writeFile(join(OUT, 'styles.css'), css + BANNER_CSS);
 
   // Pages runs Jekyll by default, which strips directories beginning with an
@@ -112,6 +126,25 @@ async function main(): Promise<void> {
   // no rewrite rules of its own.
   await writeFile(join(OUT, '404.html'), staticHtml);
 
+  // ── 4. The artifact variant ───────────────────────────────────────────────
+  //
+  // A Claude artifact supplies its own <!doctype>, <html>, <head> and <body>,
+  // so the page must be a body fragment with its <title> and <style> inline.
+  // Same scripts, same modules, same rules — only the envelope differs.
+  step(4, 'writing artifact.html (body fragment, inlined CSS)');
+  const bodyOnly = staticHtml
+    .slice(staticHtml.indexOf('<body>') + '<body>'.length, staticHtml.lastIndexOf('</body>'))
+    .replace('<script type="module" src="./static-boot.js"></script>', '')
+    .trim();
+  const artifactHtml = [
+    '<title>Kabaddi Tournament Console</title>',
+    `<style>\n${css}${BANNER_CSS}\n${ARTIFACT_CSS}</style>`,
+    bodyOnly,
+    '<script type="module" src="./static-boot.js"></script>',
+    '',
+  ].join('\n');
+  await writeFile(join(OUT, 'artifact.html'), artifactHtml);
+
   const kb = (n: number) => `${Math.round(n / 1024)} kB`;
   console.log('\n  Built');
   console.log(`  out        ${OUT}`);
@@ -121,6 +154,7 @@ async function main(): Promise<void> {
   const approved = store.listResultsForTournament(tid).filter((r) => r.resultStatus === 'Approved').length;
   console.log(`  seed       ${kb(snapshot.length)} · ${events.length} event(s), ${fixtures} fixtures, ${approved} approved, ${store.queryAudit({ limit: 100000 }).length} audit entries`);
   console.log(`  entry      index.html → static-boot.js → lib/api/routes.js`);
+  console.log(`  artifact   artifact.html (${kb(artifactHtml.length)}, body fragment with CSS inlined)`);
   console.log('\n  Serve it with any static server, e.g.  npx serve dist\n');
 }
 

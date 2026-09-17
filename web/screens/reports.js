@@ -6,7 +6,7 @@
  * print-ready HTML for print-to-PDF. Every export is audit-logged server side.
  */
 
-import { badge, card, el, empty, field, notice, pageHead, select, table, tile } from '../ui.js';
+import { badge, card, el, empty, field, notice, pageHead, select, showDocument, table, tile } from '../ui.js';
 
 /**
  * Fetch an export through the API and hand it to the browser.
@@ -18,21 +18,14 @@ import { badge, card, el, empty, field, notice, pageHead, select, table, tile } 
  * entry, and works unchanged in the static build where there is no server to
  * link to.
  */
-async function deliver(ctx, key, qs, format) {
+async function deliver(ctx, key, qs, format, label) {
   try {
     const out = await ctx.api.raw('GET', `/api/reports/${key}?${qs}`);
-    const type = format === 'csv' ? 'text/csv;charset=utf-8' : 'text/html;charset=utf-8';
-    const url = URL.createObjectURL(new Blob([out.body], { type }));
-    if (format === 'csv') {
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = out.filename ?? `${key}.csv`;
-      a.click();
-    } else {
-      window.open(url, '_blank', 'noopener');
-    }
-    // Give the new tab a moment to take the blob before releasing it.
-    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    showDocument({
+      title: format === 'csv' ? `${label} — CSV` : `${label} — printable`,
+      body: String(out.body),
+      kind: format,
+    });
   } catch (e) {
     ctx.toast(e.message, 'err', 9000);
   }
@@ -151,8 +144,8 @@ export async function render(ctx) {
           {
             note: def.purpose,
             actions: [
-              el('button', { class: 'btn', type: 'button', onclick: () => deliver(ctx, key, query('csv'), 'csv') }, 'Download CSV'),
-              el('button', { class: 'btn', type: 'button', onclick: () => deliver(ctx, key, query('html'), 'html') }, 'Print / save as PDF'),
+              el('button', { class: 'btn', type: 'button', onclick: () => deliver(ctx, key, query('csv'), 'csv', def.name) }, 'View CSV'),
+              el('button', { class: 'btn', type: 'button', onclick: () => deliver(ctx, key, query('html'), 'html', def.name) }, 'View printable'),
             ],
           },
         )
