@@ -8,6 +8,36 @@
 
 import { badge, card, el, empty, field, notice, pageHead, select, table, tile } from '../ui.js';
 
+/**
+ * Fetch an export through the API and hand it to the browser.
+ *
+ * These were plain `<a href="/api/reports/…">` links, which worked only
+ * because a server happened to be listening on the same origin. Going through
+ * the API client instead means an export obeys the same transport as every
+ * other call — so it carries the acting user, still gets its §5.8 audit
+ * entry, and works unchanged in the static build where there is no server to
+ * link to.
+ */
+async function deliver(ctx, key, qs, format) {
+  try {
+    const out = await ctx.api.raw('GET', `/api/reports/${key}?${qs}`);
+    const type = format === 'csv' ? 'text/csv;charset=utf-8' : 'text/html;charset=utf-8';
+    const url = URL.createObjectURL(new Blob([out.body], { type }));
+    if (format === 'csv') {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = out.filename ?? `${key}.csv`;
+      a.click();
+    } else {
+      window.open(url, '_blank', 'noopener');
+    }
+    // Give the new tab a moment to take the blob before releasing it.
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  } catch (e) {
+    ctx.toast(e.message, 'err', 9000);
+  }
+}
+
 export async function render(ctx) {
   const t = ctx.tournament;
   const catalogue = await ctx.api.get('/api/reports');
@@ -121,8 +151,8 @@ export async function render(ctx) {
           {
             note: def.purpose,
             actions: [
-              el('a', { class: 'btn', href: `/api/reports/${key}?${query('csv')}`, download: '' }, 'Download CSV'),
-              el('a', { class: 'btn', href: `/api/reports/${key}?${query('html')}`, target: '_blank', rel: 'noopener' }, 'Print / save as PDF'),
+              el('button', { class: 'btn', type: 'button', onclick: () => deliver(ctx, key, query('csv'), 'csv') }, 'Download CSV'),
+              el('button', { class: 'btn', type: 'button', onclick: () => deliver(ctx, key, query('html'), 'html') }, 'Print / save as PDF'),
             ],
           },
         )

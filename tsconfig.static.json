@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist/lib",
+    "declaration": false,
+    "sourceMap": true,
+    "lib": [
+      "ES2023",
+      "DOM"
+    ],
+    "types": []
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "test/**/*.ts",
+    "src/store/db.ts",
+    "src/api/server.ts",
+    "src/seed/cli.ts",
+    "src/build/**/*.ts"
+  ]
+}
