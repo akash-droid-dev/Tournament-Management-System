@@ -77,6 +77,40 @@
   }
 }
 
+/*
+ * An explicit light choice must also win over a dark OS. The media query above
+ * cannot do it — it does not match when the OS is dark — so the same tokens
+ * are repeated behind the stamp. Without this, a host that stamps
+ * data-theme="light" on a dark system leaves the page dark and ignores the
+ * reader.
+ */
+:root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f4f6f9;
+    --surface: #ffffff;
+    --surface-2: #f7f9fb;
+    --surface-3: #eef2f6;
+    --line: #d8dee7;
+    --line-soft: #e6ebf1;
+    --text: #131822;
+    --text-2: #515e70;
+    --text-3: #7b8798;
+    --accent: #b96a1c;
+    --accent-soft: #b96a1c18;
+    --accent-line: #b96a1c50;
+    --info: #226f91;
+    --info-soft: #226f9118;
+    --ok: #1f7a4d;
+    --ok-soft: #1f7a4d18;
+    --warn: #8a6410;
+    --warn-soft: #8a641018;
+    --danger: #ad2f26;
+    --danger-soft: #ad2f2618;
+    --pub: #4356b5;
+    --pub-soft: #4356b518;
+    --shadow: 0 1px 2px rgb(16 24 40 / 0.06), 0 8px 24px -14px rgb(16 24 40 / 0.18);
+}
+
 * { box-sizing: border-box; }
 
 html, body { height: 100%; }
@@ -451,10 +485,65 @@ a { color: var(--info); }
     border-bottom: 1px solid var(--line);
     display: flex; gap: 4px; overflow-x: auto; padding: 8px;
   }
+  /*
+   * A grid item defaults to min-width: auto, so the track sizes to the nav's
+   * full content width and the overflow-x above never engages — the whole page
+   * scrolls sideways instead of the strip. This is the line that makes it work.
+   */
+  .sidebar { min-width: 0; }
   .nav-group { display: flex; gap: 4px; margin: 0; }
   .nav-group-title { display: none; }
   .nav-item { white-space: nowrap; }
   .nav-item-spec { display: none; }
   .main { padding: 14px 16px 48px; }
   .sb-score { font-size: 34px; }
+
+  /*
+   * The top bar is a single unwrapped row, and the user <select> sizes itself
+   * to its widest option ("Public / Media — Viewer"), so at phone width the
+   * bar alone was 732px and took the page with it. Let it wrap, and let the
+   * select shrink instead of setting the floor.
+   */
+  .topbar {
+    height: auto;
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding: 8px 16px;
+  }
+  .topbar-left, .topbar-right { min-width: 0; }
+  .topbar-right { flex: 1 1 auto; justify-content: flex-end; }
+  .role-switch { flex: 1 1 auto; min-width: 0; }
+  .role-switch select { flex: 1 1 auto; min-width: 0; max-width: 100%; }
+  .tournament-chip {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* The 52px assumption no longer holds once the bar can wrap. */
+  .layout { min-height: 0; }
 }
+
+/* ── Generated-document viewer ───────────────────────────────────────────── */
+.doc-frame {
+  width: 100%;
+  height: min(60vh, 520px);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+.doc-text {
+  max-height: min(60vh, 520px);
+  overflow: auto;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre;
+  tab-size: 2;
+}
+.doc-text:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
