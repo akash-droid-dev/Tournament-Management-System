@@ -14,13 +14,24 @@ How the module is put together, and why each boundary sits where it does.
 │  ctx.api is the only route out. The UI hides what a role cannot do but    │
 │  never relies on that hiding for security.                               │
 └────────────────────────────────┬──────────────────────────────────────────┘
-                                 │  fetch, x-tms-user header
+                                 │  a pluggable transport
+                    ┌────────────┴────────────┐
+                    │                         │
+┌───────────────────▼──────────┐  ┌───────────▼──────────────────────────────┐
+│  src/api/server.ts           │  │  web/static-boot.js                      │
+│  ─────────────────           │  │  ───────────────────                     │
+│  node:http, no framework.    │  │  The same table, called directly in the  │
+│  Body parsing, static files, │  │  tab. No server, no network. This is     │
+│  resolveUser() — the single  │  │  what the GitHub Pages demo is.          │
+│  authentication seam.        │  │                                          │
+└───────────────────┬──────────┘  └───────────┬──────────────────────────────┘
+                    └────────────┬────────────┘
 ┌────────────────────────────────▼──────────────────────────────────────────┐
-│  src/api/server.ts                          HTTP                          │
+│  src/api/routes.ts                          routing                       │
 │  ─────────────────────────────────────────────────────────────────────    │
-│  node:http, no framework. Routing, body parsing, content negotiation for  │
-│  reports (JSON / CSV / printable HTML). resolveUser() is the single       │
-│  authentication seam.                                                     │
+│  The route table and dispatch, with no platform import. Content           │
+│  negotiation for reports (JSON / CSV / printable HTML). A route cannot    │
+│  exist in one host and be missing from the other.                         │
 └────────────────────────────────┬──────────────────────────────────────────┘
                                  │
 ┌────────────────────────────────▼──────────────────────────────────────────┐
@@ -36,8 +47,8 @@ How the module is put together, and why each boundary sits where it does.
 │ ─────────────  │  │   ───────────       │  │  ──────────                   │
 │ phase gates    │  │ eligibility         │  │  node:sqlite. Aggregates as   │
 │ approval chain │  │ rng  (seeded)       │  │  JSON documents beside the    │
-│ exceptions     │  │ draw               │  │  columns we filter on.         │
-│                │  │ scheduler          │  │  The audit table is           │
+│ exceptions     │  │ draw               │  │  TmsStoreLike: node:sqlite or │
+│                │  │ scheduler          │  │  Maps. The audit table is     │
 │ PURE           │  │ officials          │  │  insert-and-select only.      │
 │                │  │ standings          │  │                               │
 │                │  │ progression        │  │  THE SEAM a host GMS replaces │
@@ -234,9 +245,43 @@ would produce a dozen join tables to reconstruct one entity that is always read
 whole. Keeping them as documents, with indexes on what we query, keeps the
 schema close to the specification.
 
-**`TmsStore` is the seam.** A host GMS has its own database. Replacing this one
-class with a Postgres or Prisma implementation changes nothing above the store
-layer, because the service talks to it through methods, not SQL.
+**`TmsStoreLike` is the seam, and it is a real one.** A host GMS has its own
+database. Replacing the store with a Postgres or Prisma implementation changes
+nothing above it, because the service talks to the interface in
+`src/store/store.ts` — methods, not SQL.
+
+The module ships two implementations, which is how the claim gets tested rather
+than merely asserted:
+
+| | `TmsStore` (`db.ts`) | `MemoryStore` (`memory.ts`) |
+| --- | --- | --- |
+| Backing | `node:sqlite` | plain `Map`s |
+| Used by | the server | tests, and the browser build |
+| Transaction | `BEGIN` / `COMMIT` / `ROLLBACK` | snapshot and restore |
+| Foreign keys | enforced by the schema | **not enforced** |
+
+`test/store-contract.test.ts` runs every assertion against both, so a method
+that behaves differently in one is a failing test rather than a surprise on
+match day. The foreign-key row is the one place they genuinely differ, and it
+has its own test saying so — in production an orphan write fails loudly at the
+store, in the browser it would succeed. Not a hole in practice, because the
+service resolves a parent and throws `not found` before it writes a child, but
+worth knowing rather than discovering.
+
+### What the second implementation buys
+
+Because `MemoryStore` has no platform imports — and neither, after the
+`node:crypto` removal in `domain/ids.ts`, does anything in `domain/`,
+`sports/`, `engines/` or `workflow/` — the whole module runs in a browser:
+
+```
+  npm run build:static   →   dist/   →   GitHub Pages
+```
+
+The published demo is not a mock-up. It compiles the real domain to ESM, runs
+the real seeder in Node to produce a snapshot, and points the UI's transport at
+`handleRequest` in the tab. Every rule a visitor meets is the shipped rule; only
+storage is swapped. See **Try it in a browser** in the README.
 
 ### The audit table is structurally append-only
 
@@ -337,13 +382,22 @@ re-validation at every gate — entry, draw, check-in — not once at entry.
 | Sport rules | Unit tests naming each rule | These are what a federation disputes |
 | Engines | Unit tests on pure functions | No setup, so coverage is cheap |
 | Workflow | Unit tests on each gate and each refusal | The refusals are the product |
+| Store | Every assertion run against **both** implementations | A seam only helps if both sides agree |
 | Store + service | The lifecycle test drives the real seeder | Integration bugs live between layers |
 | Invariants | Asserted over the whole seeded dataset | Catches what per-function tests miss |
 | UI | Headless Chromium, every role × every screen | A screen that throws is invisible to unit tests |
+| Static build | Headless Chromium against a server that 404s `/api/*` | Proves the demo needs no server, rather than assuming it |
 
 The invariant tests are the ones that found real bugs. Asserting "no official
 holds two overlapping duties" over 248 assignments catches what testing
 `assessCandidate` in isolation cannot.
+
+One caveat worth stating: `npm run typecheck` deliberately covers only the
+configs that need nothing beyond the declared devDependencies. The browser
+smoke test imports Playwright, which is optional and self-skips when absent, so
+its config lives in `npm run typecheck:ui`. CI found that the hard way — the
+combined check passed locally only because Playwright happened to be installed,
+and failed on a clean install.
 
 ---
 
