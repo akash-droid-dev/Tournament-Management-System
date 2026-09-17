@@ -10,8 +10,8 @@
     "start": "node src/api/server.ts",
     "seed": "node src/seed/cli.ts",
     "demo": "node src/seed/cli.ts --reset && node src/api/server.ts",
-    "test": "node --test --experimental-test-isolation=none test/",
-    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-test-isolation=none \"test/*.test.ts\"",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.ui.json",
     "test:ui": "node --test test/ui.smoke.test.ts"
   },
   "license": "UNLICENSED",
