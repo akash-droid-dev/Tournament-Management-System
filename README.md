@@ -10,10 +10,14 @@ progression, medals and the games-wide medal tally.
 Built from the *TMS Functional Workflow Document v1.0*. Every module cites the
 section it implements, so the code and the document can be read side by side.
 
-**[▶ Open the live demo](https://akash-droid-dev.github.io/Tournament-Management-System/)**
-— the real rules running in your browser, no install. See
-[Try it in a browser](#try-it-in-a-browser) for what that does and does not
-prove.
+**Live demo:** `npm run build:static` produces a `dist/` that runs the real
+rules with no server — see [Try it in a browser](#try-it-in-a-browser). The
+workflow to publish it to
+[GitHub Pages](https://akash-droid-dev.github.io/Tournament-Management-System/)
+is committed and green up to the deploy; the site needs enabling once, by hand:
+**Settings → Pages → Build and deployment → Source: GitHub Actions**. A
+workflow cannot do it — `POST /repos/:owner/:repo/pages` is not available to
+the Actions `GITHUB_TOKEN`.
 
 ---
 
@@ -55,8 +59,13 @@ role's permissions.
 
 ## Try it in a browser
 
-The [live demo](https://akash-droid-dev.github.io/Tournament-Management-System/)
-is not a mock-up of the screens. It is this module with its storage swapped.
+```bash
+npm run build:static        # → dist/
+npx serve dist              # or any static file server
+```
+
+What comes out is not a mock-up of the screens. It is this module with its
+storage swapped.
 
 `docs/02-architecture.md` claims the store is "the seam a host GMS replaces".
 The Pages build is that claim being cashed: `src/store/memory.ts` implements the

@@ -44,11 +44,30 @@ jobs:
       - name: Build the static bundle
         run: npm run build:static
 
+      - name: Check that Pages is enabled
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pages")
+          if [ "$code" = "404" ]; then
+            echo "::error title=GitHub Pages is not enabled::Enable it once, by hand: Settings -> Pages -> Build and deployment -> Source: GitHub Actions. Then re-run this workflow. It cannot be enabled from a workflow: POST /pages is not available to the Actions GITHUB_TOKEN."
+            exit 1
+          fi
+          echo "Pages site present (HTTP $code)."
+
+      # One-time setup, by a repository admin:
+      #   Settings → Pages → Build and deployment → Source: GitHub Actions
+      #
+      # It cannot be automated from here. `enablement: true` asks
+      # configure-pages to create the site over the REST API, and GitHub
+      # refuses that for the Actions GITHUB_TOKEN ("Resource not accessible by
+      # integration") — POST /repos/:owner/:repo/pages needs a user token with
+      # admin rights. So this step assumes the site exists, and the check above
+      # explains it if not.
       - uses: actions/configure-pages@v5
-        with:
-          # Creates the Pages site on the first run instead of requiring
-          # someone to flip it on in Settings beforehand. No-op afterwards.
-          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
