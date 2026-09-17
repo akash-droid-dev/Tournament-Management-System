@@ -18,7 +18,7 @@ import { resetSeq } from '../domain/ids.ts';
 import type { ParticipantSnapshot } from '../engines/eligibility.ts';
 import type { OfficialSnapshot } from '../engines/officials.ts';
 import { KABADDI_EVENTS, kabaddi } from '../sports/index.ts';
-import type { TmsStore } from '../store/db.ts';
+import type { TmsStoreLike } from '../store/store.ts';
 import { TmsService } from '../api/service.ts';
 
 /** Units taking part, with a readable team name for each. */
@@ -53,7 +53,7 @@ function user(userId: string, name: string, role: Role, scope: User['scope'] = {
 }
 
 /** A 12-player squad; Kabaddi fields 7 with 5 substitutes. */
-function squad(unitId: string, gender: 'M' | 'W', tournamentId: string, store: TmsStore): ParticipantSnapshot[] {
+function squad(unitId: string, gender: 'M' | 'W', tournamentId: string, store: TmsStoreLike): ParticipantSnapshot[] {
   const first = gender === 'M'
     ? ['Arjun', 'Rohit', 'Vikas', 'Sunil', 'Manoj', 'Deepak', 'Ajay', 'Ravi', 'Naveen', 'Sachin', 'Pardeep', 'Girish']
     : ['Priya', 'Kavita', 'Sunita', 'Anjali', 'Ritu', 'Nisha', 'Pooja', 'Meena', 'Shalu', 'Jyoti', 'Rekha', 'Sonia'];
@@ -87,7 +87,7 @@ export interface SeedResult {
   notes: string[];
 }
 
-export function seedKabaddiTournament(store: TmsStore): SeedResult {
+export function seedKabaddiTournament(store: TmsStoreLike): SeedResult {
   resetSeq();
   const notes: string[] = [];
   const service = new TmsService(store);
@@ -586,7 +586,7 @@ export function seedKabaddiTournament(store: TmsStore): SeedResult {
     "Women's event is deliberately mid-competition: early fixtures approved, one result Under Protest freezing its bracket path, later rounds still awaiting their feeders.",
   );
 
-  store.saveTournament({ ...(store.getTournament(tid) as NonNullable<ReturnType<TmsStore['getTournament']>>), status: 'Active' });
+  store.saveTournament({ ...(store.getTournament(tid) as NonNullable<ReturnType<TmsStoreLike['getTournament']>>), status: 'Active' });
 
   return { tournamentId: tid, menEventId: men.eventId, womenEventId: women.eventId, users, notes };
 }
