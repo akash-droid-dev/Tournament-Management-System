@@ -11,9 +11,11 @@
     "seed": "node src/seed/cli.ts",
     "demo": "node src/seed/cli.ts --reset && node src/api/server.ts",
     "test": "node --test --experimental-test-isolation=none \"test/*.test.ts\"",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.ui.json && tsc --noEmit -p tsconfig.static.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.static.json",
     "test:ui": "node --test test/ui.smoke.test.ts",
-    "build:static": "node src/build/static.ts"
+    "build:static": "node src/build/static.ts",
+    "typecheck:ui": "tsc --noEmit -p tsconfig.ui.json",
+    "check": "npm run typecheck && npm test"
   },
   "license": "UNLICENSED",
   "private": true,

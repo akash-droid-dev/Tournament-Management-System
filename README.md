@@ -31,9 +31,10 @@ Or in one step: `npm run demo`.
 | --- | --- |
 | `npm start` | Serves the API and the operations console on `:4321` |
 | `npm run seed` | Drives a full tournament through all ten phases (`-- --reset` to wipe first) |
-| `npm test` | 255 tests (`node:test`); the browser pass skips itself without Playwright |
+| `npm test` | 298 tests (`node:test`); the browser pass skips itself without Playwright |
 | `npm run test:ui` | Browser smoke test alone — needs `npm i -D playwright` |
-| `npm run typecheck` | `tsc --noEmit` over all three configs (server, UI, static) |
+| `npm run typecheck` | `tsc --noEmit` over the server and static configs |
+| `npm run typecheck:ui` | The browser test's config — needs `npm i -D playwright` |
 | `npm run build:static` | Builds `dist/` — the module with no server, for GitHub Pages |
 
 Sign in from the picker in the top bar. The demo seeds one user per role plus
