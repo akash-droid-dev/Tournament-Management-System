@@ -5,8 +5,6 @@
  * day, and they appear on printed fixture sheets (§10 report 1).
  */
 
-import { randomUUID } from 'node:crypto';
-
 let counters: Record<string, number> = {};
 
 /** `KAB-M-0007`-style sequential IDs, stable within a process. */
@@ -25,8 +23,15 @@ export function primeSeq(prefix: string, value: number): void {
   counters[prefix] = Math.max(counters[prefix] ?? 0, value);
 }
 
+/**
+ * `globalThis.crypto` rather than `node:crypto`: it exists in Node 18+ and in
+ * every browser, which keeps this module — and therefore the whole domain,
+ * sport, engine and workflow layer — free of any platform import. That is what
+ * lets the same rules run server-side and in a browser against an in-memory
+ * store (see `src/store/memory.ts`).
+ */
 export function uuid(): string {
-  return randomUUID();
+  return globalThis.crypto.randomUUID();
 }
 
 export const newTournamentId = (): string => seq('TRN');
