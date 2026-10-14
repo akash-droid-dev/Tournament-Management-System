@@ -6,7 +6,7 @@ name: Deploy the demo to GitHub Pages
 
 on:
   push:
-    branches: [claude/tms-module-kabaddi-10avlv, main]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
